@@ -1,8 +1,10 @@
 # Data preprocessing
 
-Contents here.
+The first step of the bioinformatic pipeline is to pre-process the raw sequencing data to prepare them for downstream analyses.
 
 ## Quality-filtering
+
+Raw sequencing data require an initial preprocessing to get rid off low-quality nucleotides and reads, as well as any remains of sequencing adaptors that can mess around in the downstream analyses. An efficient way to do so is to use the software fastp, which can perform all above-mentioned operations in a single go and directly on compressed files.
 
 ```{sh fastp, eval=FALSE}
 fastp \
@@ -21,7 +23,25 @@ fastp \
     --adapter_sequence_r2 {params.adapter2}
 ```
 
-## Host mapping
+## Splitting host and non-host data
+
+
+Depending on the sample type employed for data generation, sequencing data might contain only host reads, only microbial reads, or a mixture of both. For example, blood sampled from an animal is expected to only contain host DNA/RNA reads (unless an infection is ongoing), while DNA extracted from a microbial culture is only expected to contain microbial DNA/RNA reads (unless human contamination has happened). In contrast, intestinal content samples, faecal samples, leave samples or root samples can contain both host and microbial nucleic acids.
+
+### Index host genome{-}
+
+In order to map metagenomic reads to a reference host genome, it is necessary to index the genome. An index is a data structure that allows for efficient searching of the reference genome by breaking it down into smaller, more manageable pieces. Without an index, aligning reads to a reference genome would be prohibitively slow, especially for large genomes. Bowtie2 is a popular software tool for aligning reads to a reference genome, and it requires an index of the reference genome before alignment can be performed. Bowtie2 uses an index based on the Burrows-Wheeler transform (BWT) algorithm, which enables it to efficiently align reads to the reference genome. Here are the basic command to create a Bowtie2 index for a reference genome:
+
+```{sh host_index, eval=FALSE}
+bowtie2-build \
+    --large-index \
+    --threads {threads} \
+        {input.genome} {output.index}
+```
+
+### Host mapping{-}
+
+The next step is to map the reads against the reference genome, followed by a split between reads that have been mapped (in the example below are retained in a BAM/SAM file) and the reads that were not mapped (in the example below outputed to fastq files). The mapped reads can be used for performing population genomic analyses, while the unmapped reads can be used for metagenomic analyses.
 
 ```{sh host_mapping, eval=FALSE}
 # Map reads to catted reference using Bowtie2

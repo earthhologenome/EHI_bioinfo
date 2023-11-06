@@ -26,7 +26,29 @@ The Earth Hologenome Initiative (EHI, [www.earthhologenome.org](http://www.earth
 One of the main objectives of the EHI is to facilitate analysis of animal genomic and microbial metagenomic data. Here, you will find a summary of the bioinformatic pipeline we use for generating analytical data from raw sequencing files.
 
 ## Workflow overview
-Description of pipeline
+The genome-resolved metagenomics pipeline of the EHI aims to reconstruct metagenome-assembled genomes (MAGs) from faecal and other samples, and subsequently annotate and analyse these MAGs for a better understanding of microbial community composition and function. Here is an overview of such a pipeline:
+
+1. **Data preprocessing:** the pipeline begins by assessing and filtering raw sequencing data to remove low-quality reads, adapters, and contaminants. This step ensures the data's reliability and quality.
+
+2. **Splitting host and non-host data:** the metagenomic fraction is separated from the host, by mapping the reads against a reference host genome.
+
+3. **Metagenomic assembly:** the remaining non-host reads are assembled into contigs or scaffolds using metagenomic assembly software. This step results in a set of contigs representing the genetic material of the microbial community.
+
+4. **Binning:** the assembled contigs are clustered into metagenome-assembled genomes (MAGs) based on sequence composition, coverage, and other characteristics.
+
+5. **MAG Annotation:** MAGs are annotated to determine their taxonomic identity and functional potential.
+
+6. **Dereplication:** MAGs are dereplicated to remove redundancy and retain only unique genomic representatives. This step ensures that each MAG represents a distinct microbial population or genome.
+
+7. **Compositional overview:** finally, to understand the composition of the gut microbiota in individual samples, the pre-processed reads from each sample are mapped against the dereplicated MAG catalogue. This step quantifies the abundance of each MAG in each sample, allowing for a comprehensive view of the microbial community composition.
 
 ## Snakemake pipeline
-Description of Snakemake
+
+Snakemake is a workflow management system that helps automate the execution of computational workflows. It is designed to handle complex dependencies between the input files, output files, and the software tools used to process the data. Snakemake is based on the Python programming language and provides a simple and intuitive syntax for defining rules and dependencies.
+
+Here is a brief overview of how Snakemake works and its basic usage:
+
+1. Define the input and output files: In Snakemake, you define the input and output files for each step in your workflow. This allows Snakemake to determine when a step needs to be executed based on the availability of its inputs and the freshness of its outputs.
+2. Write rules: Next, you write rules that describe the software tools and commands needed to process the input files into the output files. A rule consists of a name, input and output files, and a command to run.
+3. Create a workflow: Once you have defined the rules, you create a workflow by specifying the order in which the rules should be executed. Snakemake automatically resolves the dependencies between the rules based on the input and output files.
+4. Run the workflow: Finally, you run the workflow using the snakemake command. Snakemake analyzes the input and output files and executes the rules in the correct order to generate the desired output files.

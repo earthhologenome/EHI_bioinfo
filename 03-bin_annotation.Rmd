@@ -1,7 +1,9 @@
 # Bin annotation
-Contents here
+Once the bins of draft bacterial genomes have been generated, one can annotated them both taxonomically as well as functionally, to obtain biological insights into the characterised microbial community.
 
 ## Taxonomic annotation
+
+Although not necessary for conducting most of the downstream analyses, taxonomic annotation of MAGs is an important step to provide context, improve comparability and facilitate result interpretation in holo-omic studies. MAGs can be taxonomically annotated using different algorithms and reference databases, but the Genome Taxonomy Database (GTDB) and associated taxonomic classification toolkit (GTDB-Tk) have become the preferred option for many researchers.
 
 ```{sh gtdbtk, eval=FALSE}
 # Run GTDB-tk:
@@ -14,6 +16,8 @@ gtdbtk classify_wf \
 ```
 
 ## Functional annotation
+
+Functional annotation refers to the process of identifying putative functions of genes present in MAGs based on information available in reference databases. The first step is to predict genes in the MAGs (unless these are available from the assembly), followed by functional annotation by matching the protein sequences predicted from the genes with reference databases. Currently, multiple tools exist that perform all these procedures in a single pipeline. For instance, DRAM performs the annotation using Pfam, KEGG, UniProt, CAZY and MEROPS databases. These functional annotations can be used for performing functional gene enrichment analyses, distilling them into genome-inferred functional traits, and many other downstrean operations covered in the [EHI analysis workflow](https://www.earthhologenome.org/analysis).
 
 ```{sh dram, eval=FALSE}
 DRAM.py annotate \

@@ -8,6 +8,8 @@ bookdown::gitbook:
         <li align="center"><b>BIOINFORMATICS WORFLOW</b></li>
       after: |
         <li><a href="https://www.earthhologenome.org" target="blank"><b>Earth Hologenome Initiative</b></a></li>
+        <li><a href="https://www.earthhologenome.org/laboratory" target="blank"><b>Laboratory workflow</b></a></li>
+        <li><a href="https://www.earthhologenome.org/analysis" target="blank"><b>Analysis workflow</b></a></li>
     download: ["pdf", "epub"]
   fig_width: 8
 bookdown::pdf_book:

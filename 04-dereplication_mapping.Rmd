@@ -1,8 +1,12 @@
 # Dereplication and mapping
 
-Contents here
+The next step of the pipeline is to dereplicate bins into a MAG catalogue, and to map the pre-processed sequencing reads to the MAG catalogue to obtain read-count data per sample and MAG.
 
 ## MAG dereplication
+
+Dereplication is the reduction of a set of MAGs based on high sequence similarity between them. Although this step is neither essential nor meaningful in certain cases (e.g., when studying straing-level variation or pangenomes), in most cases it contributes to overcome issues such as excessive computational demands, inflated diversity or unspecific read mapping. If the catalogue of MAGs used to map sequencing reads to contains many similar genomes, read mapping results in multiple high-quality alignments. Depending on the software used and parameters chosen, this leads to sequencing reads either being randomly distributed across the redundant genomes or being reported at all redundant locations. This can bias quantitative estimations of relative representation of each MAG in a given metagenomic sample.
+
+Dereplication is based on pairwise comparisons of average nucleotide identity (ANI) between MAGs. This implies that the number of comparisons scales quadratically with an increasing amount of MAGs, which requires for efficient strategies to perform dereplication in a cost-efficient way. A popular tool used for dereplicating MAGs is dRep, which combines the fast yet innacurate algorithm MASH with the slow but accurate gANI computation to yield a fast and accurate estimation of ANIs between MAGs. An optimal threshold that balances between retaining genome diversity while minimising cross-mapping issues has been found to be 98% ANI.
 
 ```{sh drep, eval=FALSE}
 dRep dereplicate \
@@ -16,16 +20,28 @@ dRep dereplicate \
 
 ## Mapping to MAG catalogue
 
-```{sh mag_indexing, eval=FALSE}
+When the objective of a genome-resolved metagenomic analysis is to reconstruct and analyse a microbiome, researchers usually require relative abundance information to measure how abundant or rare each bacteria was in the analysed sample. In order to achieve this, it is necessary to map the reads of each sample back to the MAG catalogue and retrieve mapping statistics. The procedure is identical to that explained in the assembly read-mapping section, yet using the MAG catalogue as a reference database rather than the metagenomic assembly.
+
+This procedure usually happens in two steps. In the first step, reads are mapped to the MAG catalogue to generate BAM or CRAM mapping files. In the second step, these mapping files are used to extract quantitative read-abundance information in the form of a table in which the amount of reads mapped to each MAG in each sample is displayed.
+
+First, all MAGs need to be concatenated into a single file, which will become the reference MAG catalogue or database.
+
+```{sh mag_concatenate, eval=FALSE}
 # Concatenate MAGs
 cat {config[workdir]}/drep/dereplicated_genomes/*.fa.gz > {config[workdir]}/mag_catalogue/{config[dmb]}_mags.fasta.gz
+```
 
+The MAG catalogue needs to be indexed before the mapping.
+
+```{sh mag_indexing, eval=FALSE}
 # Index the coassembly
 bowtie2-build \
       --large-index \
       --threads {threads} \
       {output.mags} {output.mags}
 ```
+
+Then, the following step needs to be iterated for each sample, yielding a BAM mapping file for each sample.
 
 ```{sh mag_mapping, eval=FALSE}
 bowtie2 \
@@ -37,16 +53,10 @@ bowtie2 \
 | samtools sort -@ {threads} -o {output}
 ```
 
-```{sh mag_mapping_counts, eval=FALSE}
-coverm genome \
-    -b {input} \
-    -s ^ \
-    -m count covered_fraction \
-    -t {threads} \
-    --min-covered-fraction 0 \
-    > {output.count_table}
+Finally, CoverM can be used to extract the required stats, such as relative abundance and covered fraction per MAG per sample.
 
-#relative abundance for report
+```{sh mag_mapping_counts, eval=FALSE}
+#Relative abundance
 coverm genome \
     -b {input} \
     -s ^ \
@@ -54,4 +64,13 @@ coverm genome \
     -t {threads} \
     --min-covered-fraction 0 \
     > {output.mapping_rate}
+
+#MAG coverage
+coverm genome \
+    -b {input} \
+    -s ^ \
+    -m count covered_fraction \
+    -t {threads} \
+    --min-covered-fraction 0 \
+    > {output.count_table}
 ```
