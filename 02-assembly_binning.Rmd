@@ -1,0 +1,178 @@
+# Assembly & Binning
+Contents here
+
+## Metagenomic assembly
+
+```{sh assembly, eval=FALSE}
+megahit \
+    -t {threads} \
+    --verbose \
+    --min-contig-len 1500 \
+    -1 {input.r1} -2 {input.r2} \
+    -f \
+    -o {config[workdir]}/{wildcards.PRB}_{wildcards.EHI}_assembly
+```
+
+## Assembly mapping
+
+```{sh assembly_mapping, eval=FALSE}
+# Map reads to assembly using Bowtie2
+bowtie2 \
+    --time \
+    --threads {threads} \
+    -x {input.contigs} \
+    -1 {input.r1} \
+    -2 {input.r2} \
+| samtools sort -@ {threads} -o {output}
+```
+
+```{sh assembly_mapping_counts, eval=FALSE}
+coverm genome \
+      -b {input.bam} \
+      --genome-fasta-files {input.contigs} \
+      -m relative_abundance \
+      -t {threads} \
+      --min-covered-fraction 0 \
+      > {output.coverm}
+
+#Run coverm for the eukaryotic assessment pipeline
+coverm genome \
+      -s - \
+      -b {input.bam} \
+      -m relative_abundance count mean covered_fraction \
+      -t {threads} \
+      --min-covered-fraction 0 \
+      > {output.euk}
+```
+
+## Ensemble binning
+
+### Maxbin
+```{sh maxbin, eval=FALSE}
+# summarise contig depths
+jgi_summarize_bam_contig_depths \
+    --outputDepth {params.outdir}/mb2_master_depth.txt \
+    --noIntraDepthVariance \
+    {input.bam}
+
+#calculate total numper of columns
+A=($(head -n 1 {params.outdir}/mb2_master_depth.txt))
+N=${{#A[*]}}
+
+# split the contig depth file into multiple files
+if [ -f {params.outdir}/mb2_abund_list.txt ]; then rm {params.outdir}/mb2_abund_list.txt; fi
+for i in $(seq 4 $N); do
+    sample=$(head -n 1 {params.outdir}/mb2_master_depth.txt | cut -f $i)
+    grep -v totalAvgDepth {params.outdir}/mb2_master_depth.txt | cut -f 1,$i > {params.outdir}/mb2_${{sample%.*}}.txt
+    if [[ {params.outdir} == /* ]]; then
+        echo {params.outdir}/mb2_${{sample%.*}}.txt >> {params.outdir}/mb2_abund_list.txt
+    else
+        echo {params.outdir}/mb2_${{sample%.*}}.txt >> {params.outdir}/mb2_abund_list.txt
+    fi
+done
+
+# Run maxbin2
+run_MaxBin.pl \
+    -contig {input.contigs} \
+    -markerset 107 \
+    -thread {threads} \
+    -min_contig_length 1500 \
+  -out {params.outdir}/maxbin2_out/bin \
+  -abund_list {params.outdir}/mb2_abund_list.txt
+
+mkdir -p {params.outdir}/maxbin2_bins
+for i in {params.outdir}/maxbin2_out/*.fasta;
+    do mv $i {params.outdir}/maxbin2_bins/$(basename ${{i/.fasta/.fa}});
+done
+```
+### Metabat
+```{sh metabat, eval=FALSE}
+# summarise contig depths
+jgi_summarize_bam_contig_depths --outputDepth {params.outdir}/metabat_depth.txt {input.bam}
+
+# Run metabat2
+metabat2 \
+     -i {input.contigs} \
+     -a {params.outdir}/metabat_depth.txt \
+     -o {params.outdir}/metabat2_bins/bin \
+     -m 1500 \
+     -t {threads} \
+     --unbinned
+```
+### CONCOCT
+```{sh concoct, eval=FALSE}
+cut_up_fasta.py {input.contigs} -c 10000 --merge_last -b {params.outdir}/assembly_10K.bed -o 0 > {params.outdir}/assembly_10K.fa
+
+concoct_coverage_table.py {params.outdir}/assembly_10K.bed {input.bam} > {params.outdir}/concoct_depth.txt
+
+concoct \
+    -l 1500 \
+    -t {threads} \
+    --coverage_file {params.outdir}/concoct_depth.txt \
+    --composition_file {params.outdir}/assembly_10K.fa \
+    -b {params.outdir}
+
+merge_cutup_clustering.py {params.outdir}/clustering_gt1500.csv > {params.outdir}/clustering_gt1500_merged.csv
+mkdir -p {params.outdir}/concoct_bins
+python {config[codedir]}/scripts/metawrap_split_concoct_bins.py {params.outdir}/clustering_gt1500_merged.csv {input.contigs} {params.outdir}/concoct_bins
+```
+## Bin refinement
+```{sh metawrap_refinement, eval=FALSE}
+# setup checkm2 db path (in case of first run)
+checkm2 database --setdblocation {config[checkmdb]}
+
+bash {config[codedir]}/scripts/metawrap_refinement.sh \
+    -t {threads} \
+    -o {params.outdir} \
+    -A {params.binning}/concoct_bins/ \
+    -B {params.binning}/maxbin2_bins/ \
+    -C {params.binning}/metabat2_bins/ \
+    -c 50 \
+    -x 10
+
+# Rename output files, and sort metawrap by bin name
+head -1 {params.outdir}/metawrap_50_10_bins.stats > {params.outdir}/mw_colnames.tsv
+sed '1d;' {params.outdir}/metawrap_50_10_bins.stats | sort -k1,1 -t$'\t' > {params.outdir}/mw_sorted.tsv
+cat {params.outdir}/mw_colnames.tsv {params.outdir}/mw_sorted.tsv > {params.outdir}/mw_sorted_col.tsv
+mv {params.outdir}/mw_sorted_col.tsv {output.stats}
+mv {params.outdir}/metawrap_50_10_bins.contigs {output.contigmap}
+sed -i'' '2,$s/bin/{wildcards.EHA}_bin/g' {output.stats}
+sed -i'' 's/bin/{wildcards.EHA}_bin/g' {output.contigmap}
+
+# Rename metawrap bins to match coassembly group:
+for bin in {params.outdir}/metawrap_50_10_bins/*.fa;
+    do mv $bin ${{bin/bin./{wildcards.EHA}_bin.}};
+done
+
+# Compress output bins
+pigz -p {threads} {params.outdir}/metawrap_50_10_bins/*.fa
+
+#Print the number of MAGs to a file for combining with the assembly report
+mkdir -p {params.stats_dir}
+ls -l {params.outdir}/metawrap_50_10_bins/*.fa.gz | wc -l > {params.stats_dir}/{wildcards.EHA}_bins.tsv
+
+# Reformat MAG headers for CoverM
+for mag in {params.outdir}/metawrap_50_10_bins/*.fa.gz;
+    do rename.sh \
+        in=$mag \
+        out={params.outdir}/$(basename ${{mag/.fa.gz/_renamed.fa.gz}}) \
+        zl=9 \
+        prefix=$(basename ${{mag/.fa.gz/^}});
+done
+
+rm {params.outdir}/metawrap_50_10_bins/*.fa.gz
+for mag in {params.outdir}/*.fa.gz;
+    do mv $mag {params.outdir}/metawrap_50_10_bins/$(basename ${{mag/_renamed/}});
+done
+```
+## Taxonomy annotation
+
+```{sh gtdbtk, eval=FALSE}
+# Run GTDB-tk:
+gtdbtk classify_wf \
+    --genome_dir {params.bins} \
+    --extension "gz" \
+    --out_dir {params.outdir} \
+    --cpus {threads} \
+    --skip_ani_screen
+```

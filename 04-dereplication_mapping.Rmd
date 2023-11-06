@@ -1,0 +1,57 @@
+# Dereplication and mapping
+
+Contents here
+
+## MAG dereplication
+
+```{sh drep, eval=FALSE}
+dRep dereplicate \
+      {config[workdir]}/drep \
+      -p {threads} \
+      -comp 50 \
+      -sa {config[ani]} \
+      -g {config[magdir]}/*.fa.gz \
+      --genomeInfo mags_formatted.csv
+```
+
+## Mapping to MAG catalogue
+
+```{sh mag_indexing, eval=FALSE}
+# Concatenate MAGs
+cat {config[workdir]}/drep/dereplicated_genomes/*.fa.gz > {config[workdir]}/mag_catalogue/{config[dmb]}_mags.fasta.gz
+
+# Index the coassembly
+bowtie2-build \
+      --large-index \
+      --threads {threads} \
+      {output.mags} {output.mags}
+```
+
+```{sh mag_mapping, eval=FALSE}
+bowtie2 \
+    --time \
+    --threads {threads} \
+    -x {input.contigs} \
+    -1 {input.r1} \
+    -2 {input.r2} \
+| samtools sort -@ {threads} -o {output}
+```
+
+```{sh mag_mapping_counts, eval=FALSE}
+coverm genome \
+    -b {input} \
+    -s ^ \
+    -m count covered_fraction \
+    -t {threads} \
+    --min-covered-fraction 0 \
+    > {output.count_table}
+
+#relative abundance for report
+coverm genome \
+    -b {input} \
+    -s ^ \
+    -m relative_abundance \
+    -t {threads} \
+    --min-covered-fraction 0 \
+    > {output.mapping_rate}
+```

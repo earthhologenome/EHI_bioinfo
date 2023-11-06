@@ -1,0 +1,32 @@
+---
+title: "The Earth Hologenome Initiative Bioinformatics Workflow"
+author:
+  - Raphael Eisenhofer^[University of Copenhagen, raphael.eisenhofer@sund.ku.dk]
+  - Antton Alberdi^[University of Copenhagen, antton.alberdi@sund.ku.dk]
+date: "`r Sys.Date()`"
+site: bookdown::bookdown_site
+documentclass: book
+bibliography: [book.bib, packages.bib]
+url: http://www.earthhologenome.org/bioinformatics
+description: |
+  Detailed information of the data analysis procedures employed in the Earth Hologenome Initiative.
+link-citations: yes
+github-repo: earthhologenome/EHI_bioinfo
+---
+```{r knitr_opts, echo=FALSE}
+knitr::opts_chunk$set(
+    class.source = "script-source",
+    class.output = "script-output",
+    comment = NA)
+```
+
+# Introduction
+The Earth Hologenome Initiative (EHI, [www.earthhologenome.org](http://www.earthhologenome.org)) is a global collaborative endeavour aimed at promoting, facilitating, coordinating, and standardising hologenomic research on wild organisms worldwide. The EHI encompasses projects with diverse study designs and goals around standardised and open access sample collection and preservation, data generation and data management criteria.
+
+One of the main objectives of the EHI is to facilitate analysis of animal genomic and microbial metagenomic data. Here, you will find a summary of the bioinformatic pipeline we use for generating analytical data from raw sequencing files.
+
+## Workflow overview
+Description of pipeline
+
+## Snakemake pipeline
+Description of Snakemake

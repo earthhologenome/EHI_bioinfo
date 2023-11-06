@@ -1,0 +1,83 @@
+# Data preprocessing
+
+Contents here.
+
+## Quality-filtering
+
+```{sh fastp, eval=FALSE}
+fastp \
+    --in1 {input.r1i} --in2 {input.r2i} \
+    --out1 {output.r1o} --out2 {output.r2o} \
+    --trim_poly_g \
+    --trim_poly_x \
+    --low_complexity_filter \
+    --n_base_limit 5 \
+    --qualified_quality_phred 20 \
+    --length_required 60 \
+    --thread {threads} \
+    --html {output.fastp_html} \
+    --json {output.fastp_json} \
+    --adapter_sequence {params.adapter1} \
+    --adapter_sequence_r2 {params.adapter2}
+```
+
+## Host mapping
+
+```{sh host_mapping, eval=FALSE}
+# Map reads to catted reference using Bowtie2
+bowtie2 \
+    --time \
+    --threads {threads} \
+    -x {input.catted_ref} \
+    -1 {input.r1i} \
+    -2 {input.r2i} \
+| samtools view -b -@ {threads} - | samtools sort -@ {threads} -o {output.all_bam} - &&
+
+# Extract non-host reads (note we're not compressing for nonpareil)
+samtools view -b -f12 -@ {threads} {output.all_bam} \
+| samtools fastq -@ {threads} -1 {output.non_host_r1} -2 {output.non_host_r2} - &&
+
+# Send host reads to BAM
+samtools view -b -F12 -@ {threads} {output.all_bam} \
+| samtools sort -@ {threads} -o {output.host_bam} -
+
+# Get % duplicates from host BAM
+picard -Xmx{resources.mem_gb}g MarkDuplicates \
+-I {output.host_bam} \
+-O {output.markdup_bam} \
+-M {output.markdup}
+```
+
+## Metagenomic complexity assessment
+
+```{sh nonpareil, eval=FALSE}
+nonpareil \
+    -s {input.non_host_r1} \
+    -f fastq \
+    -T kmer \
+    -t {threads} \
+    -b {wildcards.sample}
+
+#Script to extract nonpareil values of interest
+Rscript {config[codedir]}/scripts/nonpareil_table.R {output.npo} {output.npstats}
+```
+
+## Prokaryotic fraction assessment
+
+```{sh singlem, eval=FALSE}
+#Run singlem pipe
+singlem pipe \
+    -1 {input.non_host_r1} \
+    -2 {input.non_host_r2} \
+    --otu-table {params.pipe_uncompressed} \
+    --taxonomic-profile {output.condense} \
+    --threads {threads}
+
+#Run singlem read_fraction
+singlem read_fraction \
+    -1 {input.non_host_r1} \
+    -2 {input.non_host_r2} \
+    --input-profile {output.condense} \
+    --output-tsv {output.read_fraction} \
+    --output-per-taxon-read-fractions {params.read_fraction_taxa}
+```

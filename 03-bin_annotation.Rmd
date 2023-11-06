@@ -1,0 +1,31 @@
+# Bin annotation
+Contents here
+
+## Taxonomic annotation
+
+```{sh gtdbtk, eval=FALSE}
+# Run GTDB-tk:
+gtdbtk classify_wf \
+    --genome_dir {params.bins} \
+    --extension "gz" \
+    --out_dir {params.outdir} \
+    --cpus {threads} \
+    --skip_ani_screen
+```
+
+## Functional annotation
+
+```{sh dram, eval=FALSE}
+DRAM.py annotate \
+        -i {input.mag} \
+        -o {params.outdir} \
+        --threads {threads} \
+        --min_contig_size 1500
+
+
+DRAM.py distill \
+        -i {params.outdir}/annotations.tsv \
+        --rrna_path {params.outdir}/rrnas.tsv \
+        --trna_path {params.outdir}/trnas.tsv \
+        -o {params.distillate}
+```
